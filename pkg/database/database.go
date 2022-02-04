@@ -18,7 +18,7 @@ func InitMySqlConnection() error {
 		Passwd: os.Getenv("MYSQL_PASSWORD"),
 		Net:    "tcp",
 		Addr:   os.Getenv("MYSQL_IP_ADDRESS"),
-		DBName: "products",
+		DBName: "online_shop",
 	}
 
 	var err error
@@ -46,7 +46,7 @@ func GetAllProducts() ([]Product, error) {
 
 	for rows.Next() {
 		var p Product
-		if err := rows.Scan(&p.ID, &p.Title, &p.Category, &p.Quantity, &p.Price); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Category, &p.Quantity, &p.Price); err != nil {
 			return nil, fmt.Errorf("parsing to a product failed with: %v", err)
 		}
 		products = append(products, p)
@@ -59,7 +59,7 @@ func GetProductById(productId string) (*Product, error) {
 	row := db.QueryRow("SELECT * FROM products WHERE id = ?", productId)
 
 	var p Product
-	if err := row.Scan(&p.ID, &p.Title, &p.Category, &p.Quantity, &p.Price); err != nil {
+	if err := row.Scan(&p.ID, &p.Name, &p.Category, &p.Quantity, &p.Price); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("no product with id: %s", productId)
 		}
@@ -77,9 +77,16 @@ func GetAllOrders() ([]Order, error) {
 
 	for rows.Next() {
 		var o Order
-		if err := rows.Scan(&o.ID, &o.Name, &o.Address, &o.Phone, &o.Products, &o.Price, &o.Status); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.Address, &o.Phone, &o.Price, &o.Status); err != nil {
 			return nil, fmt.Errorf("getting all products failed with: %v", err)
 		}
+
+		products, err := GetAllProductsForOrder(o.ID)
+		if err != nil {
+			return nil, err
+		}
+		o.Products = products
+
 		orders = append(orders, o)
 	}
 
@@ -90,12 +97,18 @@ func GetOrderById(orderId string) (*Order, error) {
 	row := db.QueryRow("SELECT * FROM orders WHERE id = ?", orderId)
 
 	var o Order
-	if err := row.Scan(&o.ID, &o.Name, &o.Address, &o.Phone, &o.Products, &o.Price, &o.Status); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.Address, &o.Phone, &o.Price, &o.Status); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("no order with id: %s", orderId)
 		}
 		return nil, fmt.Errorf("searching for %s failed with: %s", orderId, err)
 	}
+
+	products, err := GetAllProductsForOrder(o.ID)
+	if err != nil {
+		return nil, err
+	}
+	o.Products = products
 
 	return &o, nil
 }
@@ -106,14 +119,7 @@ func AddOrder(order *Order) (string, error) {
 		return "", fmt.Errorf("failed to generate uuid error: %s", err)
 	}
 
-	products := ""
-	for _, p := range order.Products {
-		products += p.ID + ","
-	}
-
-	status := "Accepted"
-
-	_, err = db.Query("INSERT INTO orders (ID, ID, Address, Phone, Products, Price, Status) VALUES (?,?,?,?,?,?)", id.String(), order.Name, order.Address, order.Phone, products, status)
+	_, err = db.Query("INSERT INTO orders (ID, NAME, Address, Phone, Price, Status) VALUES (?,?,?,?,?,?)", id.String(), order.Name, order.Address, order.Phone, order.Price, order.Status)
 	if err != nil {
 		return "", fmt.Errorf("failed to add order to the database, error: %s", err)
 	}
@@ -139,7 +145,7 @@ func ChangeProductQuantity(productId string, quantity int) error {
 	var p Product
 
 	row := db.QueryRow("SELECT * FROM products WHERE id = ?", productId)
-	if err := row.Scan(&p.ID, &p.Title, &p.Category, &p.Quantity, &p.Price); err != nil {
+	if err := row.Scan(&p.ID, &p.Name, &p.Category, &p.Quantity, &p.Price); err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("no product with id: %s", productId)
 		}
@@ -148,11 +154,52 @@ func ChangeProductQuantity(productId string, quantity int) error {
 
 	newQuantity := p.Quantity - quantity
 	if newQuantity < 0 {
-		return fmt.Errorf("not enough quantity of product: %s", p.Title)
+		return fmt.Errorf("not enough quantity of product: %s", p.Name)
 	}
 
 	if _, err := db.Query("UPDATE products SET quantity = ? WHERE id = ?", newQuantity, p.ID); err != nil {
 		return fmt.Errorf("updating quantity failed with: %s", err)
+	}
+
+	return nil
+}
+
+func GetAllProductsForOrder(orderId string) ([]Product, error) {
+	var products []Product
+
+	rows, err := db.Query("SELECT product_id, quantity FROM orderedProduct WHERE order_id = ?", orderId)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading ordered product from database: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.Quantity); err != nil {
+			return nil, fmt.Errorf("parsing to a product failed with: %v", err)
+		}
+
+		details, err := GetProductById(p.ID)
+		if err != nil {
+			return nil, err
+		}
+		p.Name, p.Category, p.Price = details.Name, details.Category, details.Price
+
+		products = append(products, p)
+	}
+
+	return products, nil
+}
+
+func AddOrderedProduct(op *OrderedProduct) error {
+	id, err := uuid.NewV4()
+	if err != nil {
+		return fmt.Errorf("failed to generate uuid error: %s", err)
+	}
+
+	_, err = db.Query("INSERT INTO orderedProduct (ID, PRODUCT_ID, QUANTITY,  ORDER_ID) VALUES (?,?,?,?)", id.String(), op.ProductId, op.ProductQuantity, op.OrderId)
+	if err != nil {
+		return fmt.Errorf("failed to add ordered product to the database, error: %s", err)
 	}
 
 	return nil

@@ -104,7 +104,7 @@ func GetOrderById(id string, currency string) ([]byte, error) {
 	return bytes, nil
 }
 
-func OrderProducts(order *structs.Order) (string, error) {
+func AddOrder(order *structs.Order) (string, error) {
 	totalPrice := 0.0
 
 	for _, p := range order.Products {
@@ -122,10 +122,22 @@ func OrderProducts(order *structs.Order) (string, error) {
 	}
 
 	order.Price = totalPrice
+	order.Status = "Accepted"
 
 	orderId, err := database.AddOrder(order)
 	if err != nil {
 		return "", err
+	}
+
+	for _, p := range order.Products {
+		err = database.AddOrderedProduct(&structs.OrderedProduct{
+			ProductId:       p.ID,
+			ProductQuantity: p.Quantity,
+			OrderId:         orderId,
+		})
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return orderId, nil

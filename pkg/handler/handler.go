@@ -55,7 +55,7 @@ func GetAllOrdersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOrderHandler(w http.ResponseWriter, r *http.Request) {
-	orderId := mux.Vars(r)["productId"]
+	orderId := mux.Vars(r)["orderId"]
 	currency := r.FormValue("currency")
 
 	bytes, err := service.GetOrderById(orderId, currency)
@@ -79,7 +79,7 @@ func AddOrderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orderID, err := service.OrderProducts(&order)
+	orderID, err := service.AddOrder(&order)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "not enough quantity") {
 			fmt.Fprint(w, err)
@@ -91,7 +91,7 @@ func AddOrderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "Successful purchase: %d", orderID)
+	fmt.Fprintf(w, "Successful purchase: %s", orderID)
 }
 
 func AddProductHandler(w http.ResponseWriter, r *http.Request) {
