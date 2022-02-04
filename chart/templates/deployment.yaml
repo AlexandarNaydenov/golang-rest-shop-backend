@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-rest-shop-backend
+  labels:
+    app: golang-rest-shop-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golang-rest-shop-backend
+  template:
+    metadata:
+      labels:
+        app: golang-rest-shop-backend
+    spec:
+      containers:
+        - name: golang-rest-shop-backend
+          image: alexandar99naydenov/golang-rest-shop-backend:latest
+          env:
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              value: root-password
+            - name: MYSQL_IP_ADDRESS
+              value: 100.96.0.18:3306
+          ports:
+            - containerPort: 8080
