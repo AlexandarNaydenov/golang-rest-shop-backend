@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang-rest-shop-backend/pkg/database"
-	"github.com/golang-rest-shop-backend/pkg/structs"
+	. "github.com/golang-rest-shop-backend/pkg/structs"
 	"math"
 	"net/http"
 )
@@ -24,7 +24,7 @@ type ExchangeRateAPIResponse struct {
 	} `json:"rates"`
 }
 
-func GetAllProducts(currency string) ([]structs.Product, error) {
+func GetAllProducts(currency string) ([]Product, error) {
 	products, err := database.GetAllProducts()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
@@ -40,7 +40,7 @@ func GetAllProducts(currency string) ([]structs.Product, error) {
 	return products, nil
 }
 
-func GetProductById(id string, currency string) (*structs.Product, error) {
+func GetProductById(id string, currency string) (*Product, error) {
 	product, err := database.GetProductById(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find such product error: %s\n", err)
@@ -53,7 +53,7 @@ func GetProductById(id string, currency string) (*structs.Product, error) {
 	return product, nil
 }
 
-func GetAllOrders(currency string) ([]structs.Order, error) {
+func GetAllOrders(currency string) ([]Order, error) {
 	orders, err := database.GetAllOrders()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
@@ -68,7 +68,7 @@ func GetAllOrders(currency string) ([]structs.Order, error) {
 	return orders, nil
 }
 
-func GetOrderById(id string, currency string) (*structs.Order, error) {
+func GetOrderById(id string, currency string) (*Order, error) {
 	order, err := database.GetOrderById(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find such order error: %s\n", err)
@@ -81,7 +81,7 @@ func GetOrderById(id string, currency string) (*structs.Order, error) {
 	return order, nil
 }
 
-func AddOrder(order *structs.Order) (string, error) {
+func AddOrder(order *Order) (string, error) {
 	totalPrice := 0.0
 
 	for _, p := range order.Products {
@@ -107,7 +107,7 @@ func AddOrder(order *structs.Order) (string, error) {
 	}
 
 	for _, p := range order.Products {
-		err = database.AddOrderedProduct(&structs.OrderedProduct{
+		err = database.AddOrderedProduct(&OrderedProduct{
 			ProductId:       p.ID,
 			ProductQuantity: p.Quantity,
 			OrderId:         orderId,
@@ -120,7 +120,7 @@ func AddOrder(order *structs.Order) (string, error) {
 	return orderId, nil
 }
 
-func AddProduct(product *structs.Product) (string, error) {
+func AddProduct(product *Product) (string, error) {
 	productId, err := database.AddProduct(product)
 	if err != nil {
 		return "", err
@@ -129,7 +129,7 @@ func AddProduct(product *structs.Product) (string, error) {
 	return productId, nil
 }
 
-func UpdateProduct(product *structs.Product) error {
+func UpdateProduct(product *Product) error {
 	err := database.UpdateProduct(product)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func UpdateProduct(product *structs.Product) error {
 	return nil
 }
 
-func UpdateOrder(order *structs.Order) error {
+func UpdateOrder(order *Order) error {
 	err := database.UpdateOrder(order)
 	if err != nil {
 		return err
@@ -178,14 +178,14 @@ func convertPrice(object interface{}, currency string) error {
 	}
 
 	switch v := object.(type) {
-	case *structs.Order:
+	case *Order:
 		{
 			v.Price = math.Round(rate*v.Price*100) / 100
 			for i := range v.Products {
 				v.Products[i].Price = math.Round(rate*v.Products[i].Price*100) / 100
 			}
 		}
-	case *structs.Product:
+	case *Product:
 		{
 			v.Price = math.Round(rate*v.Price*100) / 100
 		}
