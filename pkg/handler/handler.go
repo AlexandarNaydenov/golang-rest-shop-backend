@@ -2,121 +2,270 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-rest-shop-backend/pkg/service"
 	"github.com/golang-rest-shop-backend/pkg/structs"
-	"github.com/gorilla/mux"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
-func GetAllProductHandler(w http.ResponseWriter, r *http.Request) {
-	currency := r.FormValue("currency")
+// @Summary Get all products from the shop
+// @Tags         Products
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 500 {string} string "Internal server error"
+// @Router /product [get]
+func GetAllProductHandler(c *gin.Context) {
+	currency := c.Param("currency")
 
-	bytes, err := service.GetAllProducts(currency)
+	products, err := service.GetAllProducts(currency)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, err)
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	c.JSON(http.StatusOK, products)
 }
 
-func GetProductHandler(w http.ResponseWriter, r *http.Request) {
-	productId := mux.Vars(r)["productId"]
-	currency := r.FormValue("currency")
+// @Summary Get a product by id from the shop
+// @Tags         Products
+// @Param   productId	path   string     true  "ID of the product"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Product with such Id not found"
+// @Router /product/{productId} [get]
+func GetProductHandler(c *gin.Context) {
+	currency := c.Param("currency")
+	productId := c.Param("productId")
 
-	bytes, err := service.GetProductById(productId, currency)
+	product, err := service.GetProductById(productId, currency)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, err)
+		c.String(http.StatusNotFound, err.Error())
+
+		c.AbortWithError(http.StatusNotFound, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	c.JSON(http.StatusOK, product)
 }
 
-func GetAllOrdersHandler(w http.ResponseWriter, r *http.Request) {
-	currency := r.FormValue("currency")
+// @Summary Get all orders from the shop
+// @Tags         Orders
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 500 {string} string "Internal server error"
+// @Router /order [get]
+func GetAllOrdersHandler(c *gin.Context) {
+	currency := c.Param("currency")
 
-	bytes, err := service.GetAllOrders(currency)
+	orders, err := service.GetAllOrders(currency)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, err)
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	c.JSON(http.StatusOK, orders)
 }
 
-func GetOrderHandler(w http.ResponseWriter, r *http.Request) {
-	orderId := mux.Vars(r)["orderId"]
-	currency := r.FormValue("currency")
+// @Summary Get a order by id from the shop
+// @Tags         Orders
+// @Param   orderId		path   string     true  "ID of the order"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Order with such Id not found"
+// @Router /order/{orderId} [get]
+func GetOrderHandler(c *gin.Context) {
+	currency := c.Param("currency")
+	orderId := c.Param("orderId")
 
-	bytes, err := service.GetOrderById(orderId, currency)
+	order, err := service.GetOrderById(orderId, currency)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, err)
+		c.String(http.StatusNotFound, err.Error())
+
+		c.AbortWithError(http.StatusNotFound, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	c.JSON(http.StatusOK, order)
 }
 
-func AddOrderHandler(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
+// @Summary Submit a new order
+// @Tags         Orders
+// @Accept   application/json
+// @Param   order	body   structs.ExampleOrderRequest	true  "New order details"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Request has wrong format or not enought quantity of a product"
+// @Failure 500 {string} string "Internal server error"
+// @Router /order [post]
+func AddOrderHandler(c *gin.Context) {
+	decoder := json.NewDecoder(c.Request.Body)
 	var order structs.Order
 	err := decoder.Decode(&order)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "request body has wrong format: %s\n", err)
+		c.String(http.StatusBadRequest, "request body has wrong format: %s\n", err)
+
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
 	orderID, err := service.AddOrder(&order)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "not enough quantity") {
-			fmt.Fprint(w, err)
+			c.String(http.StatusBadRequest, err.Error())
+
+			c.AbortWithError(http.StatusBadRequest, err)
 			return
 		}
 
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, err)
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	fmt.Fprintf(w, "Successful purchase: %s", orderID)
+	c.String(http.StatusOK, "Successful purchase: %s", orderID)
 }
 
-func AddProductHandler(w http.ResponseWriter, r *http.Request) {
-}
-
-func ChangeOrderStatusHandler(w http.ResponseWriter, r *http.Request) {
-}
-
-func DeleteProductHandler(w http.ResponseWriter, r *http.Request) {
-}
-
-func DeleteOrderHandler(w http.ResponseWriter, r *http.Request) {
-	orderId := mux.Vars(r)["orderId"]
-	id, err := strconv.Atoi(orderId)
+// @Summary Add a new product
+// @Tags         Products
+// @Accept   application/json
+// @Param   order	body   structs.ExampleProductRequest	true  "New product details"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Request has wrong format"
+// @Failure 500 {string} string "Internal server error"
+// @Router /product [post]
+func AddProductHandler(c *gin.Context) {
+	decoder := json.NewDecoder(c.Request.Body)
+	var product structs.Product
+	err := decoder.Decode(&product)
 	if err != nil {
-		fmt.Fprintf(w, "request id has wrong format: %s\n", err)
+		c.String(http.StatusBadRequest, "request body has wrong format: %s\n", err)
+
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	err = service.DeleteOrder(id)
+	productID, err := service.AddProduct(&product)
 	if err != nil {
-		fmt.Fprintln(w, err)
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "order %d deleted", id)
+	c.String(http.StatusOK, "Product successfully added id: %s", productID)
+}
+
+// @Summary Update an order
+// @Tags         Orders
+// @Accept   application/json
+// @Param   orderId		path   string     true  "ID of the order"
+// @Param   order	body   structs.ExampleOrderRequest	true  "Updated order details"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Request has wrong format"
+// @Failure 500 {string} string "Internal server error"
+// @Router /order/{orderId} [put]
+func UpdateOrderHandler(c *gin.Context) {
+	decoder := json.NewDecoder(c.Request.Body)
+	var order structs.Order
+	err := decoder.Decode(&order)
+	if err != nil {
+		c.String(http.StatusBadRequest, "request body has wrong format: %s\n", err)
+
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	order.ID = c.Param("orderId")
+
+	if err = service.UpdateOrder(&order); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.String(http.StatusOK, "Order %s successfully updated", order.ID)
+}
+
+// @Summary Update a product
+// @Tags         Products
+// @Accept   application/json
+// @Param   productId	path   string     true  "ID of the product"
+// @Param   order	body   structs.ExampleProductRequest	true  "Updated product details"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Request has wrong format"
+// @Failure 500 {string} string "Internal server error"
+// @Router /product/{productId} [put]
+func UpdateProductHandler(c *gin.Context) {
+	decoder := json.NewDecoder(c.Request.Body)
+	var product structs.Product
+	err := decoder.Decode(&product)
+	if err != nil {
+		c.String(http.StatusBadRequest, "request body has wrong format: %s\n", err)
+
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	product.ID = c.Param("productId")
+
+	if err = service.UpdateProduct(&product); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.String(http.StatusInternalServerError, "Product %s updated succesfully!", product.ID)
+}
+
+// @Summary Delete a product
+// @Tags         Products
+// @Param   productId	path   string     true  "ID of the product"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Request has wrong format"
+// @Failure 500 {string} string "Internal server error"
+// @Router /delete/product/{productId} [delete]
+func DeleteProductHandler(c *gin.Context) {
+	productId := c.Param("productId")
+
+	if err := service.DeleteProduct(productId); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.String(http.StatusOK, "Product %s deleted", productId)
+}
+
+// @Summary Delete an order
+// @Tags         Orders
+// @Param   orderId		path   string    true  "ID of the order"
+// @Produce  application/json
+// @Success 200 {string} string	"Successful request"
+// @Failure 404 {string} string "Request has wrong format"
+// @Failure 500 {string} string "Internal server error"
+// @Router /delete/order/{orderId} [delete]
+func DeleteOrderHandler(c *gin.Context) {
+	orderId := c.Param("orderId")
+
+	if err := service.DeleteOrder(orderId); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.String(http.StatusInternalServerError, "order %s deleted", orderId)
 }

@@ -24,3 +24,20 @@ type OrderedProduct struct {
 	ProductQuantity int
 	OrderId         string
 }
+
+type ExampleOrderRequest struct {
+	Name     string `default:"Ivan Ivanov"`
+	Address  string `default:"Sofia Mladost 2"`
+	Phone    string `default:"0888888888"`
+	Products []struct {
+		Id       string `default:"bc264186-9c2e-4533-6ba5-705c160303c1"`
+		Quantity int    `default:"2"`
+	}
+}
+
+type ExampleProductRequest struct {
+	Name     string  `default:"Men Red Shirt"`
+	Category string  `default:"Men Shirts"`
+	Quantity int     `default:"1000"`
+	Price    float64 `default:"19.99"`
+}

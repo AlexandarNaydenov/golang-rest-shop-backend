@@ -1,12 +1,26 @@
 package main
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/golang-rest-shop-backend/pkg/database"
 	"github.com/golang-rest-shop-backend/pkg/handler"
-	"github.com/gorilla/mux"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/swaggo/gin-swagger/swaggerFiles"
 	"log"
-	"net/http"
+
+	_ "github.com/golang-rest-shop-backend/pkg/swagger"
 )
+
+// @title           Golang Rest Shop Backend
+// @version         1.0
+// @description     This is a sample rest backend for an online shop.
+// @accept json
+// @produce json
+
+// @contact.name   Alexandar Naydenov
+// @contact.email  alexandar.naydenov99@gmail.com
+
+// @host      localhost:8080
 
 func init() {
 	err := database.InitMySqlConnection()
@@ -16,20 +30,23 @@ func init() {
 }
 
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/products", handler.GetAllProductHandler).Methods("GET")
-	r.HandleFunc("/orders", handler.GetAllOrdersHandler).Methods("GET")
-	r.HandleFunc("/product/{productId}", handler.GetProductHandler).Methods("GET")
-	r.HandleFunc("/order/{orderId}", handler.GetOrderHandler).Methods("GET")
+	r := gin.Default()
+	r.GET("/product", handler.GetAllProductHandler)
+	r.GET("/order", handler.GetAllOrdersHandler)
+	r.GET("/product/:productId", handler.GetProductHandler)
+	r.GET("/order/:orderId", handler.GetOrderHandler)
 
-	r.HandleFunc("/order", handler.AddOrderHandler).Methods("POST")
-	r.HandleFunc("/product", handler.AddProductHandler).Methods("POST")
+	r.POST("/order", handler.AddOrderHandler)
+	r.POST("/product", handler.AddProductHandler)
 
-	r.HandleFunc("/order/changeStatus", handler.ChangeOrderStatusHandler).Methods("PUT")
+	r.PUT("/order/:orderId", handler.UpdateOrderHandler)
+	r.PUT("/product/:productId", handler.UpdateProductHandler)
 
-	r.HandleFunc("/delete/product/{orderId}", handler.DeleteProductHandler).Methods("DELETE")
-	r.HandleFunc("/delete/order/{orderId}", handler.DeleteOrderHandler).Methods("DELETE")
+	r.DELETE("/delete/product/:productId", handler.DeleteProductHandler)
+	r.DELETE("/delete/order/:orderId", handler.DeleteOrderHandler)
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	log.Println("Listening to port 8080...")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(r.Run(":8080"))
 }

@@ -113,6 +113,20 @@ func GetOrderById(orderId string) (*Order, error) {
 	return &o, nil
 }
 
+func AddProduct(product *Product) (string, error) {
+	id, err := uuid.NewV4()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate uuid error: %s", err)
+	}
+
+	_, err = db.Query("INSERT INTO products (ID, NAME, CATEGORY, QUANTITY, PRICE) VALUES (?,?,?,?,?)", id.String(), product.Name, product.Category, product.Quantity, product.Price)
+	if err != nil {
+		return "", fmt.Errorf("failed to add product to the database, error: %s", err)
+	}
+
+	return id.String(), nil
+}
+
 func AddOrder(order *Order) (string, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
@@ -127,7 +141,37 @@ func AddOrder(order *Order) (string, error) {
 	return id.String(), nil
 }
 
-func DeleteOrder(orderId int) error {
+func UpdateProduct(product *Product) error {
+
+	result, err := db.Exec("UPDATE products SET NAME = ?, CATEGORY = ?, QUANTITY = ?, PRICE = ? WHERE ID = ?", product.Name, product.Category, product.Quantity, product.Price, product.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update product to the database, error: %s", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no product with id: %s", product.ID)
+	}
+
+	return nil
+}
+
+func UpdateOrder(order *Order) error {
+
+	result, err := db.Exec("UPDATE orders SET NAME = ?, ADDRESS = ?, PHONE = ?, PRICE = ? WHERE ID = ?", order.Name, order.Address, order.Phone, order.Price, order.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update order to the database, error: %s", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no product with id: %s", order.ID)
+	}
+
+	return nil
+}
+
+func DeleteOrder(orderId string) error {
 	result, err := db.Exec("DELETE FROM orders WHERE ID = ?;", orderId)
 	if err != nil {
 		return fmt.Errorf("failed to delete order from the database, error: %s", err)
@@ -136,6 +180,34 @@ func DeleteOrder(orderId int) error {
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
 		return fmt.Errorf("no order with id: %d", orderId)
+	}
+
+	return nil
+}
+
+func DeleteAllProductsForAnOrder(orderId string) error {
+	result, err := db.Exec("DELETE FROM orderedProduct WHERE ORDER_ID = ?;", orderId)
+	if err != nil {
+		return fmt.Errorf("failed to delete ordered product from the database, error: %s", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no order with id: %d", orderId)
+	}
+
+	return nil
+}
+
+func DeleteProduct(productId string) error {
+	result, err := db.Exec("DELETE FROM products WHERE ID = ?;", productId)
+	if err != nil {
+		return fmt.Errorf("failed to delete product from the database, error: %s", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no product with id: %d", productId)
 	}
 
 	return nil

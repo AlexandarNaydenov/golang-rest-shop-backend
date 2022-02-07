@@ -24,84 +24,61 @@ type ExchangeRateAPIResponse struct {
 	} `json:"rates"`
 }
 
-func GetAllProducts(currency string) ([]byte, error) {
-	p, err := database.GetAllProducts()
+func GetAllProducts(currency string) ([]structs.Product, error) {
+	products, err := database.GetAllProducts()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
 	}
 
-	if currency != "" {
-		rate, err := getRates(currency)
+	for i := range products {
+		err := convertPrice(&products[i], currency)
 		if err != nil {
 			return nil, err
 		}
-
-		for i := range p {
-			p[i].Price = math.Round(p[i].Price*rate*100) / 100
-		}
 	}
 
-	bytes, _ := json.Marshal(p)
-	return bytes, nil
+	return products, nil
 }
 
-func GetProductById(id string, currency string) ([]byte, error) {
-	p, err := database.GetProductById(id)
+func GetProductById(id string, currency string) (*structs.Product, error) {
+	product, err := database.GetProductById(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find such product error: %s\n", err)
 	}
 
-	if currency != "" {
-		rate, err := getRates(currency)
-		if err != nil {
-			return nil, err
-		}
-
-		p.Price = math.Round(rate*p.Price*100) / 100
+	if err = convertPrice(&product, currency); err != nil {
+		return nil, err
 	}
 
-	bytes, _ := json.Marshal(p)
-	return bytes, nil
+	return product, nil
 }
 
-func GetAllOrders(currency string) ([]byte, error) {
-	o, err := database.GetAllOrders()
+func GetAllOrders(currency string) ([]structs.Order, error) {
+	orders, err := database.GetAllOrders()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all products with error: %s\n", err)
 	}
 
-	if currency != "" {
-		rate, err := getRates(currency)
-		if err != nil {
+	for i := range orders {
+		if err = convertPrice(&orders[i], currency); err != nil {
 			return nil, err
-		}
-
-		for i := range o {
-			o[i].Price = math.Round(o[i].Price*rate*100) / 100
 		}
 	}
 
-	bytes, _ := json.Marshal(o)
-	return bytes, nil
+	return orders, nil
 }
 
-func GetOrderById(id string, currency string) ([]byte, error) {
-	o, err := database.GetOrderById(id)
+func GetOrderById(id string, currency string) (*structs.Order, error) {
+	order, err := database.GetOrderById(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find such order error: %s\n", err)
 	}
 
-	if currency != "" {
-		rate, err := getRates(currency)
-		if err != nil {
-			return nil, err
-		}
-
-		o.Price = math.Round(rate*o.Price*100) / 100
+	if err = convertPrice(&order, currency); err != nil {
+		return nil, err
 	}
 
-	bytes, _ := json.Marshal(o)
-	return bytes, nil
+	return order, nil
 }
 
 func AddOrder(order *structs.Order) (string, error) {
@@ -143,10 +120,77 @@ func AddOrder(order *structs.Order) (string, error) {
 	return orderId, nil
 }
 
-func DeleteOrder(orderId int) error {
-	err := database.DeleteOrder(orderId)
+func AddProduct(product *structs.Product) (string, error) {
+	productId, err := database.AddProduct(product)
+	if err != nil {
+		return "", err
+	}
+
+	return productId, nil
+}
+
+func UpdateProduct(product *structs.Product) error {
+	err := database.UpdateProduct(product)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func UpdateOrder(order *structs.Order) error {
+	err := database.UpdateOrder(order)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DeleteOrder(orderId string) error {
+	if err := database.DeleteAllProductsForAnOrder(orderId); err != nil {
+		return err
+	}
+
+	if err := database.DeleteOrder(orderId); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DeleteProduct(productId string) error {
+	if err := database.DeleteProduct(productId); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func convertPrice(object interface{}, currency string) error {
+	if currency == "" {
+		return nil
+	}
+
+	rate, err := getRates(currency)
+	if err != nil {
+		return err
+	}
+
+	switch v := object.(type) {
+	case *structs.Order:
+		{
+			v.Price = math.Round(rate*v.Price*100) / 100
+			for i := range v.Products {
+				v.Products[i].Price = math.Round(rate*v.Products[i].Price*100) / 100
+			}
+		}
+	case *structs.Product:
+		{
+			v.Price = math.Round(rate*v.Price*100) / 100
+		}
+	default:
+		return fmt.Errorf("unsupported type")
 	}
 
 	return nil
